@@ -41,12 +41,20 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Check if docker-compose is installed
-if ! command -v docker-compose &> /dev/null; then
-    echo -e "${RED}Error: docker-compose is not installed${NC}"
-    echo "Please install docker-compose first"
+# Check if docker compose is available (either plugin or standalone)
+DOCKER_COMPOSE_CMD=""
+if docker compose version &> /dev/null; then
+    DOCKER_COMPOSE_CMD="docker compose"
+elif command -v ${DOCKER_COMPOSE_CMD} &> /dev/null; then
+    DOCKER_COMPOSE_CMD="${DOCKER_COMPOSE_CMD}"
+else
+    echo -e "${RED}Error: Docker Compose is not installed${NC}"
+    echo "Install with: sudo apt install docker-compose-plugin"
+    echo "Or: sudo apt install docker-compose"
     exit 1
 fi
+
+echo -e "${GREEN}✓ Using: ${DOCKER_COMPOSE_CMD}${NC}"
 
 # Check if Tailscale is installed
 if ! command -v tailscale &> /dev/null; then
@@ -82,22 +90,22 @@ fi
 echo -e "${GREEN}✓ Port 5000 is available${NC}"
 echo ""
 
-# Update docker-compose.yml with Tailscale IP
-echo -e "${YELLOW}Updating docker-compose.yml with Tailscale IP...${NC}"
+# Update ${DOCKER_COMPOSE_CMD}.yml with Tailscale IP
+echo -e "${YELLOW}Updating ${DOCKER_COMPOSE_CMD}.yml with Tailscale IP...${NC}"
 
-if [ ! -f docker-compose.yml ]; then
-    echo -e "${RED}Error: docker-compose.yml not found${NC}"
+if [ ! -f ${DOCKER_COMPOSE_CMD}.yml ]; then
+    echo -e "${RED}Error: ${DOCKER_COMPOSE_CMD}.yml not found${NC}"
     echo "Are you in the changedetection directory?"
     exit 1
 fi
 
 # Backup original
-cp docker-compose.yml docker-compose.yml.backup
+cp ${DOCKER_COMPOSE_CMD}.yml ${DOCKER_COMPOSE_CMD}.yml.backup
 
 # Replace placeholder with actual Tailscale IP
-sed -i "s/YOUR_TAILSCALE_IP/${TAILSCALE_IP}/g" docker-compose.yml
+sed -i "s/YOUR_TAILSCALE_IP/${TAILSCALE_IP}/g" ${DOCKER_COMPOSE_CMD}.yml
 
-echo -e "${GREEN}✓ Updated docker-compose.yml${NC}"
+echo -e "${GREEN}✓ Updated ${DOCKER_COMPOSE_CMD}.yml${NC}"
 echo ""
 
 # Create datastore directory if it doesn't exist
@@ -108,14 +116,14 @@ echo ""
 
 # Pull Docker images
 echo -e "${YELLOW}Pulling Docker images...${NC}"
-docker-compose pull
+${DOCKER_COMPOSE_CMD} pull
 
 echo -e "${GREEN}✓ Docker images pulled${NC}"
 echo ""
 
 # Start containers
 echo -e "${YELLOW}Starting ChangeDetection.io...${NC}"
-docker-compose up -d
+${DOCKER_COMPOSE_CMD} up -d
 
 echo -e "${GREEN}✓ Containers started${NC}"
 echo ""
@@ -126,21 +134,21 @@ sleep 5
 
 # Check container status
 echo -e "${YELLOW}Checking container status...${NC}"
-docker-compose ps
+${DOCKER_COMPOSE_CMD} ps
 
 echo ""
 
 # Verify containers are running
 if ! docker ps | grep -q changedetection; then
     echo -e "${RED}Warning: changedetection container may not be running${NC}"
-    echo "Check logs: docker-compose logs changedetection"
+    echo "Check logs: ${DOCKER_COMPOSE_CMD} logs changedetection"
 else
     echo -e "${GREEN}✓ changedetection container is running${NC}"
 fi
 
 if ! docker ps | grep -q changedetection-playwright; then
     echo -e "${RED}Warning: playwright container may not be running${NC}"
-    echo "Check logs: docker-compose logs playwright-chrome"
+    echo "Check logs: ${DOCKER_COMPOSE_CMD} logs playwright-chrome"
 else
     echo -e "${GREEN}✓ playwright container is running${NC}"
 fi
@@ -162,16 +170,16 @@ Deployment Date: $(date)
 Quick Commands:
 ---------------
 # View logs
-docker-compose logs -f
+${DOCKER_COMPOSE_CMD} logs -f
 
 # Restart service
-docker-compose restart
+${DOCKER_COMPOSE_CMD} restart
 
 # Stop service
-docker-compose down
+${DOCKER_COMPOSE_CMD} down
 
 # Start service
-docker-compose up -d
+${DOCKER_COMPOSE_CMD} up -d
 
 # Check status
 docker ps
@@ -183,44 +191,37 @@ EOF
 echo -e "${GREEN}✓ Connection info saved to TAILSCALE-INFO.txt${NC}"
 echo ""
 
-# Optional: Set up Tailscale Serve for HTTPS
+# Set up Tailscale Serve for HTTPS (default, matching Immich setup)
 echo ""
 echo -e "${YELLOW}================================${NC}"
-echo -e "${YELLOW}Optional: HTTPS via Tailscale Serve${NC}"
+echo -e "${YELLOW}Setting up HTTPS via Tailscale Serve${NC}"
 echo -e "${YELLOW}================================${NC}"
 echo ""
-echo -e "You can enable HTTPS access on port 8444 (like Immich on 8443)"
-echo -e "This adds an HTTPS layer while keeping direct HTTP access available."
+echo -e "Enabling HTTPS access on port 8444 (matching Immich on 8443)"
 echo ""
-read -p "Enable Tailscale Serve HTTPS on port 8444? (y/N): " -n 1 -r
-echo
 
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}Setting up Tailscale Serve...${NC}"
-
-    # Check if port 8444 is available
-    if sudo ss -tulpn | grep -q ":8444 "; then
-        echo -e "${RED}Warning: Port 8444 is already in use${NC}"
-        echo "Skipping Tailscale Serve setup"
-    else
-        sudo tailscale serve --bg --https=8444 5000
-
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}✓ Tailscale Serve enabled on port 8444${NC}"
-            echo ""
-            echo -e "Checking Tailscale Serve status..."
-            tailscale serve status
-            echo ""
-        else
-            echo -e "${RED}Failed to set up Tailscale Serve${NC}"
-            echo "You can set it up manually later with:"
-            echo "  sudo tailscale serve --bg --https=8444 5000"
-        fi
-    fi
+# Check if port 8444 is available
+if sudo ss -tulpn | grep -q ":8444 "; then
+    echo -e "${RED}Warning: Port 8444 is already in use${NC}"
+    echo "Skipping Tailscale Serve setup"
+    HTTPS_ENABLED=false
 else
-    echo -e "${YELLOW}Skipping Tailscale Serve setup${NC}"
-    echo "You can enable it later with:"
-    echo "  sudo tailscale serve --bg --https=8444 5000"
+    echo -e "${YELLOW}Configuring Tailscale Serve...${NC}"
+    sudo tailscale serve --bg --https=8444 5000
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ Tailscale Serve enabled on port 8444${NC}"
+        echo ""
+        echo -e "Checking Tailscale Serve status..."
+        tailscale serve status
+        echo ""
+        HTTPS_ENABLED=true
+    else
+        echo -e "${RED}Failed to set up Tailscale Serve${NC}"
+        echo "You can set it up manually later with:"
+        echo "  sudo tailscale serve --bg --https=8444 5000"
+        HTTPS_ENABLED=false
+    fi
 fi
 
 echo ""
@@ -231,10 +232,13 @@ echo -e "${GREEN}Setup Complete!${NC}"
 echo -e "${GREEN}================================${NC}"
 echo ""
 echo -e "Access ChangeDetection.io at:"
-echo -e "${GREEN}http://${TAILSCALE_IP}:5000${NC} (Direct)"
 
-if [[ $REPLY =~ ^[Yy]$ ]] && ! sudo ss -tulpn | grep -q ":8444 "; then
-    echo -e "${GREEN}https://${TAILSCALE_IP}:8444${NC} (HTTPS via Tailscale Serve)"
+if [ "$HTTPS_ENABLED" = true ]; then
+    echo -e "${GREEN}https://${TAILSCALE_IP}:8444${NC} (HTTPS via Tailscale Serve) ⭐ Recommended"
+    echo -e "${GREEN}http://${TAILSCALE_IP}:5000${NC} (Direct HTTP - fallback)"
+else
+    echo -e "${GREEN}http://${TAILSCALE_IP}:5000${NC} (Direct HTTP)"
+    echo -e "${YELLOW}HTTPS not enabled. Enable with: sudo tailscale serve --bg --https=8444 5000${NC}"
 fi
 
 echo ""
