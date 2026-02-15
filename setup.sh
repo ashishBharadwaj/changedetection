@@ -90,22 +90,22 @@ fi
 echo -e "${GREEN}✓ Port 5000 is available${NC}"
 echo ""
 
-# Update ${DOCKER_COMPOSE_CMD}.yml with Tailscale IP
-echo -e "${YELLOW}Updating ${DOCKER_COMPOSE_CMD}.yml with Tailscale IP...${NC}"
+# Update docker-compose.yml with Tailscale IP
+echo -e "${YELLOW}Updating docker-compose.yml with Tailscale IP...${NC}"
 
-if [ ! -f ${DOCKER_COMPOSE_CMD}.yml ]; then
-    echo -e "${RED}Error: ${DOCKER_COMPOSE_CMD}.yml not found${NC}"
+if [ ! -f docker-compose.yml ]; then
+    echo -e "${RED}Error: docker-compose.yml not found${NC}"
     echo "Are you in the changedetection directory?"
     exit 1
 fi
 
 # Backup original
-cp ${DOCKER_COMPOSE_CMD}.yml ${DOCKER_COMPOSE_CMD}.yml.backup
+cp docker-compose.yml docker-compose.yml.backup
 
 # Replace placeholder with actual Tailscale IP
-sed -i "s/YOUR_TAILSCALE_IP/${TAILSCALE_IP}/g" ${DOCKER_COMPOSE_CMD}.yml
+sed -i "s/YOUR_TAILSCALE_IP/${TAILSCALE_IP}/g" docker-compose.yml
 
-echo -e "${GREEN}✓ Updated ${DOCKER_COMPOSE_CMD}.yml${NC}"
+echo -e "${GREEN}✓ Updated docker-compose.yml${NC}"
 echo ""
 
 # Create datastore directory if it doesn't exist
