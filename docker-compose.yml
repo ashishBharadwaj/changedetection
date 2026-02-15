@@ -1,0 +1,50 @@
+version: '3'
+
+services:
+  changedetection:
+    image: ghcr.io/dgtlmoon/changedetection.io:latest
+    container_name: changedetection
+    hostname: changedetection
+    restart: unless-stopped
+
+    ports:
+      - 5000:5000
+
+    volumes:
+      - ./datastore:/datastore
+
+    environment:
+      # Playwright for JavaScript rendering (handles Flipkart, Myntra, etc.)
+      - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000
+      # Base URL - will be updated during setup
+      # Option 1: Direct access via Tailscale IP
+      - BASE_URL=http://YOUR_TAILSCALE_IP:5000
+      # Option 2: Via Tailscale Serve HTTPS (if you run: tailscale serve --bg --https=8444 5000)
+      # - BASE_URL=https://YOUR_TAILSCALE_IP:8444
+      # Timezone
+      - TZ=Asia/Kolkata
+      # Enable all features
+      - HIDE_REFERER=true
+      - USE_X_SETTINGS=1
+
+    depends_on:
+      - playwright-chrome
+
+  # Playwright Chrome for JavaScript rendering
+  playwright-chrome:
+    image: browserless/chrome:latest
+    container_name: changedetection-playwright
+    hostname: playwright-chrome
+    restart: unless-stopped
+
+    environment:
+      - SCREEN_WIDTH=1920
+      - SCREEN_HEIGHT=1024
+      - SCREEN_DEPTH=16
+      - ENABLE_DEBUGGER=false
+      - PREBOOT_CHROME=true
+      - CONNECTION_TIMEOUT=60000
+      - MAX_CONCURRENT_SESSIONS=10
+      - CHROME_REFRESH_TIME=600000
+      - DEFAULT_BLOCK_ADS=true
+      - DEFAULT_STEALTH=true

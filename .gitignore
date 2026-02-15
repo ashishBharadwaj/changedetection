@@ -1,0 +1,35 @@
+# ChangeDetection.io - Git Ignore
+
+# Datastore (contains all watches, settings, and potentially sensitive data)
+datastore/
+
+# Environment files (may contain SMTP passwords, API keys)
+.env
+.env.local
+.env.*.local
+
+# Backup files
+*.tar.gz
+*.zip
+backup/
+backups/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Docker
+docker-compose.override.yml
